@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Richmond District Line – Live Departures</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      background-color: #000;
+      color: #00ff88;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    h1 {
+      font-size: 2rem;
+      color: #00ff88;
+      text-shadow: 0 0 8px #00ff88;
+      margin-bottom: 1rem;
+    }
+
+    #board-container {
+      width: 90%;
+      max-width: 600px;
+      margin: 0 auto;
+      background: #111;
+      border: 2px solid #00ff88;
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 0 20px #003322;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 1.25rem;
+    }
+
+    th {
+      color: #0ff;
+      text-shadow: 0 0 6px #0ff;
+      border-bottom: 2px solid #0ff;
+      padding: 0.5rem;
+    }
+
+    td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #044;
+    }
+
+    .countdown {
+      color: #ffcc00;
+      text-shadow: 0 0 8px #ffcc00;
+      font-weight: bold;
+    }
+
+    footer {
+      margin-top: 1rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚇 District Line – Richmond Eastbound</h1>
+  <div id="board-container">
+    <table id="board">
+      <tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>
+    </table>
+  </div>
+  <footer>Live data from TfL • Updates every 30s</footer>
+
+  <script>
+    let trains = [];
+
+    async function fetchData() {
+      try {
+        const res = await fetch('https://api.tfl.gov.uk/StopPoint/940GZZLORMD/Arrivals');
+        const data = await res.json();
+        const eastbound = ["Upminster","Barking","Tower Hill","West Ham","Monument","Westminster","Edgware Road"];
+
+        trains = data
+          .filter(t => t.lineName === "District" && eastbound.includes(t.destinationName))
+          .sort((a, b) => a.timeToStation - b.timeToStation)
+          .slice(0, 5)
+          .map(t => ({
+            destination: t.destinationName,
+            platform: t.platformName,
+            timeToStation: t.timeToStation
+          }));
+
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function updateCountdown() {
+      const table = document.getElementById('board');
+      table.innerHTML = '<tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>';
+
+      trains.forEach(t => {
+        // Convert seconds to minutes, rounded up
+        const mins = Math.max(0, Math.ceil(t.timeToStation / 60));
+        table.innerHTML += `<tr>
+          <td>${t.destination}</td>
+          <td>${t.platform}</td>
+          <td class="countdown">${mins} min</td>
+        </tr>`;
+        t.timeToStation -= 1; // decrease 1 second for next tick
+      });
+    }
+
+    // Initial fetch and table render
+    fetchData().then(updateCountdown);
+
+    // Update countdown every second
+    setInterval(updateCountdown, 1000);
+
+    // Refresh data from API every 15 seconds
+    setInterval(fetchData, 15000);
+  </script>
+</body>
+</html>
