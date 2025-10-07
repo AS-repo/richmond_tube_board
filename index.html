@@ -36,7 +36,7 @@
 
     #board-container {
       width: 95%;
-      max-width: 700px;
+      max-width: 500px; /* Reduced max width for the 2-column layout */
       background: #191919;
       border: 1px solid var(--color-border);
       border-radius: 4px;
@@ -56,7 +56,7 @@
       background-color: #222222;
       border-bottom: 2px solid var(--color-primary);
       padding: 12px 10px;
-      font-weight: bold; /* Use bold for serif headers */
+      font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -74,17 +74,16 @@
         border-bottom: none;
     }
 
-    td:nth-child(2) { /* Platform */
-        width: 20%; /* Increased size slightly for better tap target */
-    }
-
-    td:nth-child(3) { /* Departs In */
-        width: 30%; /* Gave "Departs In" more space */
-    }
-
-    td:nth-child(1) { /* Destination gets the remaining 50% */
+    /* --- COLUMN WIDTH FIX: Set Platform (1) and Departs In (2) to 50% each --- */
+    td:nth-child(1) { /* Platform */
         width: 50%;
     }
+
+    td:nth-child(2) { /* Departs In */
+        width: 50%;
+    }
+
+    /* Removed old td:nth-child(3) width rule */
     
     .countdown {
       color: var(--color-secondary);
@@ -103,7 +102,8 @@
   <h1>Richmond District Line – Live Departures</h1>
   <div id="board-container">
     <table id="board">
-      <tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>
+      <!-- REMOVED DESTINATION HEADER -->
+      <tr><th>Platform</th><th>Departs In</th></tr>
     </table>
   </div>
   <footer>Live data from TfL • Updates every 10s</footer>
@@ -118,15 +118,14 @@
       return match ? match[1] : 'N/A'; 
     }
 
-    // A helper function to map destination
+    // A helper function to map destination (kept for data filtering/mapping but unused in display)
     function formatDestination(towards, timeToStation) {
-        // If the API returns the train is 'At Platform' (timeToStation < 60) and 
-        // the destination is empty or a placeholder (which happens at termini), 
-        // assume the most common destination.
-        if (timeToStation < 60 && towards === '') {
+        const formattedTowards = (towards || '').toUpperCase().replace(/\s?UNDERGROUND STATION/g, '').trim();
+
+        if (timeToStation < 60 && !formattedTowards) {
             return 'Upminster (predicted)'; 
         }
-        return towards || 'N/A';
+        return formattedTowards || 'N/A';
     }
 
 
@@ -149,27 +148,39 @@
         console.error("Error fetching or processing data:", err);
         // display error message
       }
+      // Critical: Call updateCountdown immediately after fetching new data
+      updateCountdown(); 
     }
 
     function updateCountdown() {
       const table = document.getElementById('board');
-      // Set the header row once, then clear and re-add the data rows
-      table.innerHTML = '<tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>';
+      // FIX 1: Set the header row to 2 columns
+      table.innerHTML = '<tr><th>Platform</th><th>Departs In</th></tr>';
 
       trains.forEach(t => {
-        // Calculate minutes from seconds, rounded up
-        const mins = Math.max(0, Math.ceil(t.timeToStation / 60));
+        let timeDisplay;
+        const seconds = t.timeToStation;
 
+        // FIX 2: Implement "DUE" for less than 1 minute (60 seconds)
+        if (seconds <= 60) {
+             timeDisplay = "DUE";
+        } else {
+             // For all times over 1 minute, use Math.floor (round down)
+             const mins = Math.floor(seconds / 60);
+             timeDisplay = `${mins} min`;
+        }
+
+        // FIX 3: Remove Destination data cell (Platform | Departs In)
         table.innerHTML += `<tr>
           <td>${t.platform}</td>
-          <td class="countdown">${mins} min</td>
-          <td>${t.destination}</td>
+          <td class="countdown">${timeDisplay}</td>
         </tr>`;
       });
     }
 
-    // Initial fetch, then render
-    fetchData().then(updateCountdown);
+    // Initial fetch to populate the board
+    // Removed .then() since fetchData calls updateCountdown() directly
+    fetchData();
 
     // Refresh data from API every 10 seconds (this also updates the countdown)
     setInterval(fetchData, 10000); 
