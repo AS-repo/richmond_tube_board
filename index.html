@@ -5,17 +5,21 @@
   <title>Richmond District Line – Live Departures</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    /* ------------------------------------------------------------------- */
+    /* UPDATED CLEAN SERIF DARK BLUE THEME CSS */
+    /* ------------------------------------------------------------------- */
+
     :root {
       --color-background: #111111;
       --color-foreground: #FFFFFF;
-      --color-primary: #00FF88;
-      --color-secondary: #FFCC00;
-      --color-border: #333333;
-      --font-mono: 'Space Mono', 'Courier New', monospace;
+      --color-primary: #33AADD; /* Blue for Titles/Highlight */
+      --color-secondary: #FFCC00; /* Amber/Yellow for Countdown */
+      --color-border: #444444; /* Lighter border */
+      --font-serif: 'Georgia', 'Times New Roman', serif; /* Serif font */
     }
 
     body {
-      font-family: var(--font-mono);
+      font-family: var(--font-serif); 
       background-color: var(--color-background);
       color: var(--color-foreground);
       text-align: center;
@@ -40,14 +44,14 @@
       background: #191919;
       border: 1px solid var(--color-border);
       border-radius: 4px;
-      overflow: hidden;
+      overflow: hidden; 
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 1.2rem;
-      table-layout: fixed;
+      table-layout: fixed; 
     }
 
     /* Table Headers */
@@ -56,9 +60,9 @@
       background-color: #222222;
       border-bottom: 2px solid var(--color-primary);
       padding: 12px 10px;
-      font-weight: 600;
+      font-weight: bold; /* Use bold for serif headers */
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 0.5px;
     }
     
     /* Table Cells */
@@ -66,6 +70,7 @@
       padding: 15px 10px;
       border-bottom: 1px solid var(--color-border);
       font-size: 1.1rem;
+      text-align: center !important; /* FORCE CENTER ALIGNMENT FOR ALL DATA */
     }
 
     /* Last row has no bottom border */
@@ -73,21 +78,12 @@
         border-bottom: none;
     }
 
-    /* Destination Column */
-    td:nth-child(1) {
-        text-align: left;
-        font-weight: 500;
-    }
-
-    /* Platform Column */
-    td:nth-child(2) {
-        text-align: center;
+    /* Column Sizing - alignment handled by the generic td style */
+    td:nth-child(2) { /* Platform */
         width: 15%;
     }
 
-    /* Countdown Column (Departs In) */
-    td:nth-child(3) {
-        text-align: right;
+    td:nth-child(3) { /* Departs In */
         width: 25%;
     }
     
@@ -95,7 +91,6 @@
       color: var(--color-secondary);
       font-weight: bold;
       font-size: 1.3rem;
-      text-shadow: 0 0 5px rgba(255, 204, 0, 0.4);
     }
 
     footer {
@@ -127,13 +122,17 @@
 
     // A helper function to map destination
     function formatDestination(towards, timeToStation) {
+        // Use more specific check for the 'towards' field
+        const formattedTowards = (towards || '').toUpperCase().replace(/\s?UNDERGROUND STATION/g, '').trim();
+
         // If the API returns the train is 'At Platform' (timeToStation < 60) and 
         // the destination is empty or a placeholder (which happens at termini), 
         // assume the most common destination.
-        if (timeToStation < 60 && towards === '') {
-            return 'Upminster (predicted)'; 
+        if (timeToStation < 60 && !formattedTowards) {
+            return 'UPMINSTER (predicted)'; 
         }
-        return towards || 'N/A';
+        
+        return formattedTowards || 'N/A';
     }
 
 
@@ -147,15 +146,18 @@
           .sort((a, b) => a.timeToStation - b.timeToStation)
           .slice(0, 5)
           .map(t => ({
-            destination: formatDestination(t.towards, t.timeToStation),
+            // Use destinationName first, fallback to towards
+            destination: formatDestination(t.destinationName || t.towards, t.timeToStation),
             platform: getPlatformNumber(t.platformName), 
-            timeToStation: t.timeToStation 
+            timeToStation: t.timeToStation // Fresh time from API
           }));
 
       } catch (err) {
         console.error("Error fetching or processing data:", err);
         // display error message
       }
+      // Call updateCountdown immediately after fetching new data
+      updateCountdown();
     }
 
     function updateCountdown() {
@@ -164,6 +166,9 @@
       table.innerHTML = '<tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>';
 
       trains.forEach(t => {
+        // Decrement the time by 1 second for the next display tick
+        t.timeToStation = Math.max(0, t.timeToStation - 1); 
+        
         // Calculate minutes from seconds, rounded up
         const mins = Math.max(0, Math.ceil(t.timeToStation / 60));
         
@@ -175,12 +180,15 @@
       });
     }
 
-    // Initial fetch, then render
-    fetchData().then(updateCountdown);
+    // 1. Initial fetch to populate the board
+    fetchData();
 
-    // Refresh data from API every 15 seconds (this also updates the countdown)
-    setInterval(fetchData, 15000); 
+    // 2. Fast Timer: Runs every second to decrement the time and redraw the board (smooth countdown).
+    setInterval(updateCountdown, 1000);
 
-  </script>
+    // 3. Slow Timer: Refreshes data from API every 10 seconds (for accuracy and new trains).
+    setInterval(fetchData, 10000); 
+
+</script>
 </body>
 </html>
