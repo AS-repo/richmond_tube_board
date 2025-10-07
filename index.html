@@ -11,11 +11,11 @@
       --color-primary: #33AADD; /* Blue for Titles/Highlight */
       --color-secondary: #FFCC00; /* Amber/Yellow for Countdown */
       --color-border: #444444; /* Lighter border */
-      --font-serif: 'Georgia', 'Times New Roman', serif; /* Serif font */
+      --font-sans: 'Arial', Helvetica, sans-serif;
     }
 
     body {
-      font-family: var(--font-serif); 
+      font-family: var(--font-sans); 
       background-color: var(--color-background);
       color: var(--color-foreground);
       text-align: center;
@@ -133,6 +133,7 @@
         const res = await fetch(`https://api.tfl.gov.uk/StopPoint/${RICHMOND_DISTRICT_ID}/Arrivals`);
         const data = await res.json();
 
+        // When new data arrives, overwrite the 'trains' array
         trains = data
           .filter(t => t.lineName === "District")
           .sort((a, b) => a.timeToStation - b.timeToStation)
@@ -147,30 +148,25 @@
       } catch (err) {
         console.error("Error fetching or processing data:", err);
       }
-      // CRITICAL: Call updateCountdown immediately after fetching new data
       updateCountdown();
     }
 
     function updateCountdown() {
       const table = document.getElementById('board');
-      // Set the header row once, then clear and re-add the data rows
       table.innerHTML = '<tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>';
 
       trains.forEach(t => {
-        // 1. Decrement the time by 1 second for the next display tick (smooth countdown)
-        t.timeToStation = Math.max(0, t.timeToStation - 1); 
-
         let timeDisplay;
         const seconds = t.timeToStation;
 
-        if (seconds <= 0) {
-            timeDisplay = "DEPARTED";
+        if (seconds <= 5) {
+            // Treat 5 seconds or less as departed/imminent for better visual feedback
+            timeDisplay = "DUE";
         } else if (seconds <= 60) {
-            // FIX: For the last minute, display "1 min" (0-60 seconds)
+            // For the final minute, always show "1 min"
             timeDisplay = "1 min";
         } else {
-            // FIX: For all times over 60 seconds, use Math.floor (round down)
-            // This prevents 121 seconds from incorrectly showing as "3 min"
+            // For all other times, use Math.floor (round down) for accuracy
             const mins = Math.floor(seconds / 60);
             timeDisplay = `${mins} min`;
         }
@@ -184,15 +180,8 @@
       });
     }
 
-    // 1. Initial fetch to populate the board
     fetchData();
-
-    // 2. Fast Timer: Runs every second to decrement the time and redraw the board (smooth countdown).
-    setInterval(updateCountdown, 1000);
-
-    // 3. Slow Timer: Refreshes data from API every 10 seconds (for accuracy and new trains).
     setInterval(fetchData, 10000); 
 
-</script>
 </body>
 </html>
