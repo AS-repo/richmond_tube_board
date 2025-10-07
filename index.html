@@ -8,14 +8,14 @@
     :root {
       --color-background: #111111;
       --color-foreground: #FFFFFF;
-      --color-primary: #00FF88; /* Bright Green for Titles/Highlight */
-      --color-secondary: #FFCC00; /* Amber/Yellow for Countdown */
+      --color-primary: #00FF88;
+      --color-secondary: #FFCC00;
       --color-border: #333333;
       --font-mono: 'Space Mono', 'Courier New', monospace;
     }
 
     body {
-      font-family: var(--font-mono); /* Monospace for a classic terminal feel */
+      font-family: var(--font-mono);
       background-color: var(--color-background);
       color: var(--color-foreground);
       text-align: center;
@@ -40,14 +40,14 @@
       background: #191919;
       border: 1px solid var(--color-border);
       border-radius: 4px;
-      overflow: hidden; /* Contains the table's border-radius if needed */
+      overflow: hidden;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       font-size: 1.2rem;
-      table-layout: fixed; /* Ensures column widths are respected */
+      table-layout: fixed;
     }
 
     /* Table Headers */
@@ -95,7 +95,7 @@
       color: var(--color-secondary);
       font-weight: bold;
       font-size: 1.3rem;
-      text-shadow: 0 0 5px rgba(255, 204, 0, 0.4); /* Subtle glow */
+      text-shadow: 0 0 5px rgba(255, 204, 0, 0.4);
     }
 
     footer {
@@ -116,16 +116,16 @@
 
   <script>
     let trains = [];
-    const RICHMOND_DISTRICT_ID = '940GZZLURMD'; // Correct StopPoint ID for Richmond Underground
+    const RICHMOND_DISTRICT_ID = '940GZZLURMD';
 
-    // A helper function to safely get the platform number
+    // get the platform number
     function getPlatformNumber(platformName) {
       const match = platformName.match(/(\d+)\s*$/);
-      // FIX: Safely access the match result, defaults to 'N/A' if not found
+      // Safely access the match result, defaults to 'N/A' if not found
       return match ? match[1] : 'N/A'; 
     }
 
-    // A helper function to map the confusing terminal destination
+    // A helper function to map destination
     function formatDestination(towards, timeToStation) {
         // If the API returns the train is 'At Platform' (timeToStation < 60) and 
         // the destination is empty or a placeholder (which happens at termini), 
@@ -133,20 +133,15 @@
         if (timeToStation < 60 && towards === '') {
             return 'Upminster (predicted)'; 
         }
-        // Sometimes the API returns 'Upminster via Victoria' etc.
-        // We can optionally clean this up, but for now, just return the raw 'towards' data.
         return towards || 'N/A';
     }
 
 
     async function fetchData() {
       try {
-        // FIX: Used the correct StopPoint ID for District Line at Richmond
         const res = await fetch(`https://api.tfl.gov.uk/StopPoint/${RICHMOND_DISTRICT_ID}/Arrivals`);
         const data = await res.json();
 
-        // FIX: The platform name format for the Richmond branch often includes the direction.
-        // The District line is the only tube line here, so filtering by 'District' is fine.
         trains = data
           .filter(t => t.lineName === "District")
           .sort((a, b) => a.timeToStation - b.timeToStation)
