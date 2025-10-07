@@ -74,13 +74,16 @@
         border-bottom: none;
     }
 
-    /* Column Sizing - alignment handled by the generic td style */
     td:nth-child(2) { /* Platform */
-        width: 15%;
+        width: 20%; /* Increased size slightly for better tap target */
     }
 
     td:nth-child(3) { /* Departs In */
-        width: 25%;
+        width: 30%; /* Gave "Departs In" more space */
+    }
+
+    td:nth-child(1) { /* Destination gets the remaining 50% */
+        width: 50%;
     }
     
     .countdown {
@@ -153,7 +156,7 @@
 
     function updateCountdown() {
       const table = document.getElementById('board');
-      table.innerHTML = '<tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>';
+      table.innerHTML = '<tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>';
 
       trains.forEach(t => {
         let timeDisplay;
@@ -173,15 +176,15 @@
         
         // Redraw the row
         table.innerHTML += `<tr>
-          <td>${t.destination}</td>
           <td>${t.platform}</td>
           <td class="countdown">${timeDisplay}</td>
+          <td>${t.destination}</td>
         </tr>`;
       });
     }
 
     fetchData();
     setInterval(fetchData, 10000); 
-
+  </script>
 </body>
 </html>
