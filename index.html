@@ -28,7 +28,7 @@
     }
 
     h1 {
-      font-size: 1.8rem;
+      font-size: 1.5rem;
       color: var(--color-primary);
       margin-bottom: 25px;
       text-transform: uppercase;
@@ -46,7 +46,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 1.2rem;
+      font-size: 1rem;
       table-layout: fixed; 
     }
 
@@ -103,10 +103,10 @@
   <h1>Richmond District Line – Live Departures</h1>
   <div id="board-container">
     <table id="board">
-      <tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>
+      <tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>
     </table>
   </div>
-  <footer>Live data from TfL • Updates every 15s</footer>
+  <footer>Live data from TfL • Updates every 10s</footer>
   <script>
     let trains = [];
     const RICHMOND_DISTRICT_ID = '940GZZLURMD';
@@ -114,20 +114,19 @@
     // get the platform number
     function getPlatformNumber(platformName) {
       const match = platformName.match(/(\d+)\s*$/);
-      return match ? match[1] : '?'; 
+      // Safely access the match result, defaults to 'N/A' if not found
+      return match ? match[1] : 'N/A'; 
     }
 
     // A helper function to map destination
     function formatDestination(towards, timeToStation) {
-        // Use more specific check for the 'towards' field
-        const formattedTowards = (towards || '').toUpperCase().replace(/\s?UNDERGROUND STATION/g, '').trim();
-
-        // If at terminal, and no explicit destination, assume Upminster (most common)
-        if (timeToStation < 60 && !formattedTowards) {
-            return 'UPMINSTER (predicted)'; 
+        // If the API returns the train is 'At Platform' (timeToStation < 60) and 
+        // the destination is empty or a placeholder (which happens at termini), 
+        // assume the most common destination.
+        if (timeToStation < 60 && towards === '') {
+            return 'Upminster (predicted)'; 
         }
-        
-        return formattedTowards || 'N/A';
+        return towards || 'N/A';
     }
 
 
@@ -136,55 +135,45 @@
         const res = await fetch(`https://api.tfl.gov.uk/StopPoint/${RICHMOND_DISTRICT_ID}/Arrivals`);
         const data = await res.json();
 
-        // When new data arrives, overwrite the 'trains' array
         trains = data
           .filter(t => t.lineName === "District")
           .sort((a, b) => a.timeToStation - b.timeToStation)
           .slice(0, 5)
           .map(t => ({
-            // Use destinationName first, fallback to towards
-            destination: formatDestination(t.destinationName || t.towards, t.timeToStation),
+            destination: formatDestination(t.towards, t.timeToStation),
             platform: getPlatformNumber(t.platformName), 
-            timeToStation: t.timeToStation // Fresh time from API
+            timeToStation: t.timeToStation 
           }));
 
       } catch (err) {
         console.error("Error fetching or processing data:", err);
+        // display error message
       }
-      updateCountdown();
     }
 
     function updateCountdown() {
       const table = document.getElementById('board');
+      // Set the header row once, then clear and re-add the data rows
       table.innerHTML = '<tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>';
 
       trains.forEach(t => {
-        let timeDisplay;
-        const seconds = t.timeToStation;
+        // Calculate minutes from seconds, rounded up
+        const mins = Math.max(0, Math.ceil(t.timeToStation / 60));
 
-        if (seconds <= 5) {
-            // Treat 5 seconds or less as departed/imminent for better visual feedback
-            timeDisplay = "DUE";
-        } else if (seconds <= 60) {
-            // For the final minute, always show "1 min"
-            timeDisplay = "1 min";
-        } else {
-            // For all other times, use Math.floor (round down) for accuracy
-            const mins = Math.floor(seconds / 60);
-            timeDisplay = `${mins} min`;
-        }
-        
-        // Redraw the row
         table.innerHTML += `<tr>
           <td>${t.platform}</td>
-          <td class="countdown">${timeDisplay}</td>
+          <td class="countdown">${mins} min</td>
           <td>${t.destination}</td>
         </tr>`;
       });
     }
 
-    fetchData();
+    // Initial fetch, then render
+    fetchData().then(updateCountdown);
+
+    // Refresh data from API every 10 seconds (this also updates the countdown)
     setInterval(fetchData, 10000); 
+
   </script>
 </body>
 </html>
