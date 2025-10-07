@@ -5,10 +5,6 @@
   <title>Richmond District Line – Live Departures</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    /* ------------------------------------------------------------------- */
-    /* UPDATED CLEAN SERIF DARK BLUE THEME CSS */
-    /* ------------------------------------------------------------------- */
-
     :root {
       --color-background: #111111;
       --color-foreground: #FFFFFF;
@@ -108,7 +104,6 @@
     </table>
   </div>
   <footer>Live data from TfL • Updates every 15s</footer>
-
   <script>
     let trains = [];
     const RICHMOND_DISTRICT_ID = '940GZZLURMD';
@@ -116,8 +111,7 @@
     // get the platform number
     function getPlatformNumber(platformName) {
       const match = platformName.match(/(\d+)\s*$/);
-      // Safely access the match result, defaults to 'N/A' if not found
-      return match ? match[1] : 'N/A'; 
+      return match ? match[1] : '?'; 
     }
 
     // A helper function to map destination
@@ -125,9 +119,7 @@
         // Use more specific check for the 'towards' field
         const formattedTowards = (towards || '').toUpperCase().replace(/\s?UNDERGROUND STATION/g, '').trim();
 
-        // If the API returns the train is 'At Platform' (timeToStation < 60) and 
-        // the destination is empty or a placeholder (which happens at termini), 
-        // assume the most common destination.
+        // If at terminal, and no explicit destination, assume Upminster (most common)
         if (timeToStation < 60 && !formattedTowards) {
             return 'UPMINSTER (predicted)'; 
         }
@@ -154,28 +146,40 @@
 
       } catch (err) {
         console.error("Error fetching or processing data:", err);
-        // display error message
       }
-      // Call updateCountdown immediately after fetching new data
+      // CRITICAL: Call updateCountdown immediately after fetching new data
       updateCountdown();
     }
 
     function updateCountdown() {
       const table = document.getElementById('board');
       // Set the header row once, then clear and re-add the data rows
-      table.innerHTML = '<tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>';
+      table.innerHTML = '<tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>';
 
       trains.forEach(t => {
-        // Decrement the time by 1 second for the next display tick
+        // 1. Decrement the time by 1 second for the next display tick (smooth countdown)
         t.timeToStation = Math.max(0, t.timeToStation - 1); 
+
+        let timeDisplay;
+        const seconds = t.timeToStation;
+
+        if (seconds <= 0) {
+            timeDisplay = "DEPARTED";
+        } else if (seconds <= 60) {
+            // FIX: For the last minute, display "1 min" (0-60 seconds)
+            timeDisplay = "1 min";
+        } else {
+            // FIX: For all times over 60 seconds, use Math.floor (round down)
+            // This prevents 121 seconds from incorrectly showing as "3 min"
+            const mins = Math.floor(seconds / 60);
+            timeDisplay = `${mins} min`;
+        }
         
-        // Calculate minutes from seconds, rounded up
-        const mins = Math.max(0, Math.ceil(t.timeToStation / 60));
-        
+        // Redraw the row
         table.innerHTML += `<tr>
-          <td>${t.platform}</td>
-          <td class="countdown">${mins} min</td>
           <td>${t.destination}</td>
+          <td>${t.platform}</td>
+          <td class="countdown">${timeDisplay}</td>
         </tr>`;
       });
     }
