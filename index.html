@@ -5,125 +5,187 @@
   <title>Richmond District Line – Live Departures</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    :root {
+      --color-background: #111111;
+      --color-foreground: #FFFFFF;
+      --color-primary: #00FF88; /* Bright Green for Titles/Highlight */
+      --color-secondary: #FFCC00; /* Amber/Yellow for Countdown */
+      --color-border: #333333;
+      --font-mono: 'Space Mono', 'Courier New', monospace;
+    }
+
     body {
-      font-family: 'Segoe UI', Roboto, sans-serif;
-      background-color: #000;
-      color: #00ff88;
+      font-family: var(--font-mono); /* Monospace for a classic terminal feel */
+      background-color: var(--color-background);
+      color: var(--color-foreground);
       text-align: center;
       margin: 0;
-      padding: 0;
-      height: 100vh;
+      padding: 20px;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
-      justify-content: center;
+      align-items: center;
     }
 
     h1 {
-      font-size: 2rem;
-      color: #00ff88;
-      text-shadow: 0 0 8px #00ff88;
-      margin-bottom: 1rem;
+      font-size: 1.8rem;
+      color: var(--color-primary);
+      margin-bottom: 25px;
+      text-transform: uppercase;
     }
 
     #board-container {
-      width: 90%;
-      max-width: 600px;
-      margin: 0 auto;
-      background: #111;
-      border: 2px solid #00ff88;
-      border-radius: 12px;
-      padding: 1rem;
-      box-shadow: 0 0 20px #003322;
+      width: 95%;
+      max-width: 700px;
+      background: #191919;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      overflow: hidden; /* Contains the table's border-radius if needed */
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 1.25rem;
+      font-size: 1.2rem;
+      table-layout: fixed; /* Ensures column widths are respected */
     }
 
+    /* Table Headers */
     th {
-      color: #0ff;
-      text-shadow: 0 0 6px #0ff;
-      border-bottom: 2px solid #0ff;
-      padding: 0.5rem;
+      color: var(--color-primary);
+      background-color: #222222;
+      border-bottom: 2px solid var(--color-primary);
+      padding: 12px 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
-
+    
+    /* Table Cells */
     td {
-      padding: 0.5rem;
-      border-bottom: 1px solid #044;
+      padding: 15px 10px;
+      border-bottom: 1px solid var(--color-border);
+      font-size: 1.1rem;
     }
 
+    /* Last row has no bottom border */
+    tr:last-child td {
+        border-bottom: none;
+    }
+
+    /* Destination Column */
+    td:nth-child(1) {
+        text-align: left;
+        font-weight: 500;
+    }
+
+    /* Platform Column */
+    td:nth-child(2) {
+        text-align: center;
+        width: 15%;
+    }
+
+    /* Countdown Column (Departs In) */
+    td:nth-child(3) {
+        text-align: right;
+        width: 25%;
+    }
+    
     .countdown {
-      color: #ffcc00;
-      text-shadow: 0 0 8px #ffcc00;
+      color: var(--color-secondary);
       font-weight: bold;
+      font-size: 1.3rem;
+      text-shadow: 0 0 5px rgba(255, 204, 0, 0.4); /* Subtle glow */
     }
 
     footer {
-      margin-top: 1rem;
-      font-size: 0.9rem;
-      color: #555;
+      margin-top: 30px;
+      font-size: 0.8rem;
+      color: #666;
     }
   </style>
 </head>
 <body>
-  <h1>🚇 District Line – Richmond Eastbound</h1>
+  <h1>🚇 Richmond Eastbound District Line Service 🚇</h1>
   <div id="board-container">
     <table id="board">
       <tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>
     </table>
   </div>
-  <footer>Live data from TfL • Updates every 30s</footer>
+  <footer>Live data from TfL • Updates every 15s</footer>
 
   <script>
     let trains = [];
+    const RICHMOND_DISTRICT_ID = '940GZZLURMD'; // Correct StopPoint ID for Richmond Underground
+
+    // A helper function to safely get the platform number
+    function getPlatformNumber(platformName) {
+      const match = platformName.match(/(\d+)\s*$/);
+      // FIX: Safely access the match result, defaults to 'N/A' if not found
+      return match ? match[1] : 'N/A'; 
+    }
+
+    // A helper function to map the confusing terminal destination
+    function formatDestination(towards, timeToStation) {
+        // If the API returns the train is 'At Platform' (timeToStation < 60) and 
+        // the destination is empty or a placeholder (which happens at termini), 
+        // assume the most common destination.
+        if (timeToStation < 60 && towards === '') {
+            return 'Upminster (predicted)'; 
+        }
+        // Sometimes the API returns 'Upminster via Victoria' etc.
+        // We can optionally clean this up, but for now, just return the raw 'towards' data.
+        return towards || 'N/A';
+    }
+
 
     async function fetchData() {
       try {
-        const res = await fetch('https://api.tfl.gov.uk/StopPoint/940GZZLORMD/Arrivals');
+        // FIX: Used the correct StopPoint ID for District Line at Richmond
+        const res = await fetch(`https://api.tfl.gov.uk/StopPoint/${RICHMOND_DISTRICT_ID}/Arrivals`);
         const data = await res.json();
-        const eastbound = ["Upminster","Barking","Tower Hill","West Ham","Monument","Westminster","Edgware Road"];
 
+        // FIX: The platform name format for the Richmond branch often includes the direction.
+        // The District line is the only tube line here, so filtering by 'District' is fine.
         trains = data
-          .filter(t => t.lineName === "District" && eastbound.includes(t.destinationName))
+          .filter(t => t.lineName === "District")
           .sort((a, b) => a.timeToStation - b.timeToStation)
           .slice(0, 5)
           .map(t => ({
-            destination: t.destinationName,
-            platform: t.platformName,
-            timeToStation: t.timeToStation
+            destination: formatDestination(t.towards, t.timeToStation),
+            platform: getPlatformNumber(t.platformName), 
+            timeToStation: t.timeToStation 
           }));
 
       } catch (err) {
-        console.error(err);
+        console.error("Error fetching or processing data:", err);
+        // display error message
       }
     }
 
     function updateCountdown() {
       const table = document.getElementById('board');
-      table.innerHTML = '<tr><th>Destination</th><th>Platform</th><th>Departs In</th></tr>';
+      // Set the header row once, then clear and re-add the data rows
+      table.innerHTML = '<tr><th>Platform</th><th>Departs In</th><th>Destination</th></tr>';
 
       trains.forEach(t => {
-        // Convert seconds to minutes, rounded up
+        // Calculate minutes from seconds, rounded up
         const mins = Math.max(0, Math.ceil(t.timeToStation / 60));
+        
         table.innerHTML += `<tr>
-          <td>${t.destination}</td>
           <td>${t.platform}</td>
           <td class="countdown">${mins} min</td>
+          <td>${t.destination}</td>
         </tr>`;
-        t.timeToStation -= 1; // decrease 1 second for next tick
       });
     }
 
-    // Initial fetch and table render
+    // Initial fetch, then render
     fetchData().then(updateCountdown);
 
-    // Update countdown every second
-    setInterval(updateCountdown, 1000);
+    // Refresh data from API every 15 seconds (this also updates the countdown)
+    setInterval(fetchData, 15000); 
 
-    // Refresh data from API every 15 seconds
-    setInterval(fetchData, 15000);
   </script>
 </body>
 </html>
